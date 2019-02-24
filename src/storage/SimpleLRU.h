@@ -48,7 +48,7 @@ public:
     bool Delete(const std::string &key) override;
 
     // Implements Afina::Storage interface
-    bool Get(const std::string &key, std::string &value) const override; //const
+    bool Get(const std::string &key, std::string &value)  override; //const
 
 private:
     // LRU cache node

@@ -45,7 +45,7 @@ public:
     }
 
     // see SimpleLRU.h
-    bool Get(const std::string &key, std::string &value) const override {
+    bool Get(const std::string &key, std::string &value)  override { // const
         // TODO: sinchronization
         return SimpleLRU::Get(key, value);
     }
