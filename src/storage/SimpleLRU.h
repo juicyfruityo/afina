@@ -53,7 +53,7 @@ public:
 private:
     // LRU cache node
     using lru_node = struct lru_node {
-        std::string key;
+        const std::string key;
         std::string value;
         // поменял на shared_ptr
         std::shared_ptr<lru_node> prev;
@@ -81,6 +81,13 @@ private:
     // поменял на const std::string
     // потом совсем это убрал, т.к. не было перегруженной операции сравнения
     std::map<std::string, std::reference_wrapper<lru_node>> _lru_index;
+
+    using my_map = std::map<std::string, std::reference_wrapper<lru_node>>;
+    bool PutNew(const std::string &key, const std::string &value);
+    bool PutOld(const std::string &key, const std::string &value,
+                my_map::iterator iterator);
+    bool RefreshList(const std::string &key);
+    bool DeleteLast();
 };
 
 } // namespace Backend
