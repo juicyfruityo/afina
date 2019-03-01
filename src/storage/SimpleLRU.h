@@ -80,9 +80,11 @@ private:
     // Index of nodes from list above, allows fast random access to elements by lru_node#key
     // поменял на const std::string
     // потом совсем это убрал, т.к. не было перегруженной операции сравнения
-    std::map<std::string, std::reference_wrapper<lru_node>> _lru_index;
+    std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>,
+             std::less<std::string>> _lru_index; // add std::less<std::string>
 
-    using my_map = std::map<std::string, std::reference_wrapper<lru_node>>;
+    using my_map = std::map<std::reference_wrapper<const std::string>,
+                            std::reference_wrapper<lru_node>, std::less<std::string>>;
     bool PutNew(const std::string &key, const std::string &value);
     bool PutOld(const std::string &key, const std::string &value,
                 my_map::iterator iterator);

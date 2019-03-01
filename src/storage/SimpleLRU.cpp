@@ -11,8 +11,8 @@ bool SimpleLRU::Put(const std::string &key, const std::string &value) {
     auto iter = _lru_index.find(key);
     if (iter == _lru_index.end())
         return PutNew(key, value);
-    else
-        return PutOld(key, value, iter);
+
+    return PutOld(key, value, iter);
   }
 
 // See MapBasedGlobalLockImpl.h
@@ -21,8 +21,8 @@ bool SimpleLRU::PutIfAbsent(const std::string &key, const std::string &value) {
         return false;
     if (_lru_index.find(key) != _lru_index.end())
         return false;
-    else
-        return PutNew(key, value);
+
+    return PutNew(key, value);
   }
 
 // See MapBasedGlobalLockImpl.h
@@ -97,7 +97,7 @@ bool SimpleLRU::PutNew(const std::string &key, const std::string & value) {
       _lru_head = new_element;
   }
 
-  _lru_index.insert(std::make_pair(key,
+  _lru_index.insert(std::make_pair(std::reference_wrapper<const std::string>(_lru_tail->key),
                                    std::reference_wrapper<lru_node>(*_lru_tail)));
 
   _current_size += insert_memory;
