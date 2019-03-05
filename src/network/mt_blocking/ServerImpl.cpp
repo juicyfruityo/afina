@@ -138,7 +138,7 @@ void ServerImpl::OnRun() {
         {
             // чтобы записать в  список
             std::lock_guard<std::mutex> lock(_worker_mutex);
-            if (_worker_threads.size() == _worker_num && running.load()) {
+            if (_worker_threads.size() == _worker_num) {
                 std::string msg = "Achieved max number of theads!";
                 send(client_socket, msg.data(), msg.size(), 0);
                 close(client_socket);
