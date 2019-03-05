@@ -3,6 +3,9 @@
 
 #include <atomic>
 #include <thread>
+#include <list>
+#include <mutex>
+#include <condition_variable>
 
 #include <afina/network/Server.h>
 
@@ -52,6 +55,14 @@ private:
 
     // Thread to run network on
     std::thread _thread;
+
+    int _worker_num;
+    std::list<std::thread> _worker_threads;
+    std::mutex _worker_mutex;
+    std::condition_variable _worker_cv;
+    // Doing all work for one thread
+    void _worker_onrun(int socket, Afina::Storage *pStorage,
+                       std::list<std::thread>::iterator it);
 };
 
 } // namespace MTblocking
