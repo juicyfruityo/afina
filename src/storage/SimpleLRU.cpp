@@ -73,7 +73,7 @@ bool SimpleLRU::Get(const std::string &key, std::string &value)  { // const
         return false;
 
     value = get_element->second.get().value;
-    RefreshList(key); // медленно работает?
+    RefreshList(key, get_element);
 
     return true;
   }
@@ -107,21 +107,17 @@ bool SimpleLRU::PutOld(const std::string &key, const std::string &value,
             my_map::iterator iterator) {
   auto old_value = iterator->second.get().value;
   iterator->second.get().value = value;
-  RefreshList(key);
+  RefreshList(key, iterator);
 
   _current_size += value.size() - old_value.size();
   return true;
 }
 
-bool SimpleLRU::RefreshList(const std::string &key) {
-  auto ptr = _lru_head;
-  if (ptr == nullptr)
-      return false;
-
-  while (ptr->key != key && ptr->next != nullptr)
-      ptr = ptr->next;
-  if (ptr->next == nullptr)
+bool SimpleLRU::RefreshList(const std::string &key, my_map::iterator iterator) {
+  auto curr = iterator->second.get();
+  if (curr.next == nullptr)
       return true;
+  std::shared_ptr<lru_node> ptr = curr.next->prev;
 
   _lru_tail->next = ptr;
   auto prev = ptr->prev;

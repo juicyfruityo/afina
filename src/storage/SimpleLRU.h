@@ -88,7 +88,7 @@ private:
     bool PutNew(const std::string &key, const std::string &value);
     bool PutOld(const std::string &key, const std::string &value,
                 my_map::iterator iterator);
-    bool RefreshList(const std::string &key);
+    bool RefreshList(const std::string &key, my_map::iterator iterator);
     bool DeleteLast();
 };
 
