@@ -143,8 +143,7 @@ void ServerImpl::OnRun() {
                 send(client_socket, msg.data(), msg.size(), 0);
                 close(client_socket);
             } else {
-                _worker_threads.emplace_front(std::thread());
-                _worker_threads.front() = std::thread(&ServerImpl::_worker_onrun,
+                _worker_threads.emplace_front(&ServerImpl::_worker_onrun,
                                                       this, client_socket,
                                                       pStorage.get(),
                                                       _worker_threads.begin());
