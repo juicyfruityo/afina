@@ -145,7 +145,6 @@ void ServerImpl::OnRun() {
             } else {
                 _worker_threads.emplace_front(&ServerImpl::_worker_onrun,
                                                       this, client_socket,
-                                                      pStorage.get(),
                                                       _worker_threads.begin());
             }
         }
@@ -160,8 +159,7 @@ void ServerImpl::OnRun() {
     _logger->warn("Network stopped");
 }
 
-void ServerImpl::_worker_onrun(int client_socket, Afina::Storage *pStorage,
-                               std::list<std::thread>::iterator it) {
+void ServerImpl::_worker_onrun(int client_socket, std::list<std::thread>::iterator it) {
   std::size_t arg_remains;
   Protocol::Parser parser;
   std::string argument_for_command;

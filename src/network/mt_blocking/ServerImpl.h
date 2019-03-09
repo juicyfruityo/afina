@@ -61,8 +61,7 @@ private:
     std::mutex _worker_mutex;
     std::condition_variable _worker_cv;
     // Doing all work for one thread
-    void _worker_onrun(int socket, Afina::Storage *pStorage,
-                       std::list<std::thread>::iterator it);
+    void _worker_onrun(int socket, std::list<std::thread>::iterator it);
 };
 
 } // namespace MTblocking
