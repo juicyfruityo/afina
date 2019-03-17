@@ -62,7 +62,7 @@ class Executor {
 
         // Enqueue new task
         _tasks.push_back(exec);
-        if (_free_threads == 0 && _threads.size() >= _high_watermark) {
+        if (_free_threads == 0 && _threads.size() < _high_watermark) {
             _add_thread();
         }
         empty_condition.notify_one();
