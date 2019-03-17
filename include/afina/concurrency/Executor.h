@@ -8,6 +8,8 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <chrono>
+#include <algorithm>
 
 namespace Afina {
 namespace Concurrency {
@@ -28,9 +30,12 @@ class Executor {
         kStopped
     };
 
-    Executor(std::string name, int size);
+    Executor(std::string name, int low_watermark, int hight_watermark,
+             int max_queue_size, int idle_time);
     ~Executor();
 
+
+    void Start();
     /**
      * Signal thread pool to stop, it will stop accepting new jobs and close threads just after each become
      * free. All enqueued jobs will be complete.
@@ -50,13 +55,16 @@ class Executor {
         // Prepare "task"
         auto exec = std::bind(std::forward<F>(func), std::forward<Types>(args)...);
 
-        std::unique_lock<std::mutex> lock(this->mutex);
-        if (state != State::kRun) {
+        std::unique_lock<std::mutex> lock(this->_mutex);
+        if (_state != State::kRun || _tasks.size() >= _high_watermark) {
             return false;
         }
 
         // Enqueue new task
-        tasks.push_back(exec);
+        _tasks.push_back(exec);
+        if (_free_threads == 0 && _threads.size() >= _high_watermark) {
+            _add_thread();
+        }
         empty_condition.notify_one();
         return true;
     }
@@ -76,28 +84,42 @@ private:
     /**
      * Mutex to protect state below from concurrent modification
      */
-    std::mutex mutex;
+    std::mutex _mutex;
 
     /**
      * Conditional variable to await new data in case of empty queue
      */
     std::condition_variable empty_condition;
 
+    std::condition_variable _stop_cv;
     /**
      * Vector of actual threads that perorm execution
      */
-    std::vector<std::thread> threads;
+    std::vector<std::thread> _threads;
 
     /**
      * Task queue
      */
-    std::deque<std::function<void()>> tasks;
+    std::deque<std::function<void()>> _tasks;
 
     /**
      * Flag to stop bg threads
      */
-    State state;
+    State _state;
+
+    std::string _name;
+    int _low_watermark;
+    int _high_watermark;
+    int _max_queue_size;
+    int _idle_time;
+    int _free_threads;
+
+    void _add_thread();
+    void _delete_thread();
+    friend void _perform_task(Executor *exec);
 };
+
+void _perform_task(Executor *exec);
 
 } // namespace Concurrency
 } // namespace Afina

@@ -1,5 +1,80 @@
 #include <afina/concurrency/Executor.h>
 
 namespace Afina {
-namespace Concurrency {}
+namespace Concurrency {
+
+Executor::Executor(std::string name, int low_watermark, int high_watermark,
+                   int max_queue_size, int idle_time):
+                   _name(name), _low_watermark(low_watermark),
+                   _high_watermark(high_watermark), _max_queue_size(max_queue_size),
+                   _idle_time(idle_time) { }
+
+Executor::~Executor() {}
+
+void Executor::Start() {
+  _state = State::kRun;
+  _free_threads = 0;
+  for (int i=0; i<_low_watermark; ++i)
+      _threads.push_back(std::thread(&_perform_task, this));
+}
+
+void Executor::Stop(bool await) {
+  _state = State::kStopping;
+  empty_condition.notify_all();
+  {
+    std::unique_lock<std::mutex> lock(_mutex);
+    while(!_threads.empty())
+        _stop_cv.wait(lock);
+  }
+  _state = State::kStopped;
+}
+
+void Executor::_add_thread() {
+  _threads.push_back(std::thread(&_perform_task, this));
+}
+
+void Executor::_delete_thread() {
+  std::thread::id this_id = std::this_thread::get_id();
+  auto this_iter = std::find_if(_threads.begin(), _threads.end(),
+                             [=](std::thread &t){ return (t.get_id() == this_id); });
+  if (this_iter != _threads.end()) {
+      _free_threads--;
+      this_iter->detach();
+      _threads.erase(this_iter);
+  }
+}
+
+void _perform_task(Executor *exec) {
+  while (exec->_state == Executor::State::kRun) {
+      std::function<void()> task;
+      auto time_until = std::chrono::system_clock::now()
+                      + std::chrono::milliseconds(exec->_idle_time);
+      {
+        std::unique_lock<std::mutex> lock(exec->_mutex);
+        while (exec->_tasks.empty() && exec->_state == Executor::State::kRun) {
+            exec->_free_threads++;
+            if (exec->empty_condition.wait_until(lock, time_until) == std::cv_status::timeout) {
+                if (exec->_threads.size() > exec->_low_watermark) {
+                    exec->_delete_thread();
+                    return ;
+                } else {
+                    exec->empty_condition.wait(lock);
+                }
+            }
+            exec->_free_threads--;
+        }
+        task = exec->_tasks.front();
+        exec->_tasks.pop_front();
+      }
+      task();
+  }
+  {
+    std::unique_lock<std::mutex> lock(exec->_mutex);
+    exec->_delete_thread();
+    if (exec->_threads.empty())
+        exec->_stop_cv.notify_all();
+  }
+}
+
+}
 } // namespace Afina
