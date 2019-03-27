@@ -40,6 +40,7 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
     _logger->info("Start mt_blocking network service");
 
     _worker_num = n_workers;
+    _worker_current = 0;
     sigset_t sig_mask;
     sigemptyset(&sig_mask);
     sigaddset(&sig_mask, SIGPIPE);
@@ -82,6 +83,10 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
 void ServerImpl::Stop() {
     running.store(false);
     shutdown(_server_socket, SHUT_RDWR);
+    while (!_worker_sockets.empty()) {
+        shutdown(_worker_sockets.front(), SHUT_RDWR);
+        _worker_sockets.pop_front();
+    }
 }
 
 // See Server.h
@@ -138,14 +143,15 @@ void ServerImpl::OnRun() {
         {
             // чтобы записать в  список
             std::lock_guard<std::mutex> lock(_worker_mutex);
-            if (_worker_threads.size() == _worker_num) {
+            if (_worker_current == _worker_num) {
                 std::string msg = "Achieved max number of theads!";
                 send(client_socket, msg.data(), msg.size(), 0);
                 close(client_socket);
             } else {
-                _worker_threads.emplace_front(&ServerImpl::_worker_onrun,
-                                                      this, client_socket,
-                                                      _worker_threads.begin());
+                _worker_current++;
+                _worker_sockets.push_back(client_socket);
+                std::thread _work(&ServerImpl::_worker_onrun, this, client_socket);
+                _work.detach();
             }
         }
     }
@@ -153,13 +159,13 @@ void ServerImpl::OnRun() {
     {
         // ждём завершения последних тредов
         std::unique_lock<std::mutex> lock(_worker_mutex);
-        _worker_cv.wait(lock, [this](){ return _worker_threads.empty(); });
+        _worker_cv.wait(lock, [this](){ return _worker_current==0; });
     }
     // Cleanup on exit...
     _logger->warn("Network stopped");
 }
 
-void ServerImpl::_worker_onrun(int client_socket, std::list<std::thread>::iterator it) {
+void ServerImpl::_worker_onrun(int client_socket) {
   std::size_t arg_remains;
   Protocol::Parser parser;
   std::string argument_for_command;
@@ -246,9 +252,8 @@ void ServerImpl::_worker_onrun(int client_socket, std::list<std::thread>::iterat
 
   {
     std::lock_guard<std::mutex> lock(_worker_mutex);
-    it->detach();
-    _worker_threads.erase(it);
-    if (_worker_threads.empty() && !running.load())
+    _worker_current--;
+    if (_worker_current == 0 && !running.load())
         _worker_cv.notify_all();
   }
 }

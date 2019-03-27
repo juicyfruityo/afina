@@ -52,16 +52,16 @@ private:
 
     // Server socket to accept connections on
     int _server_socket;
+    std::list<int> _worker_sockets;
 
     // Thread to run network on
     std::thread _thread;
 
-    int _worker_num;
-    std::list<std::thread> _worker_threads;
+    int _worker_num, _worker_current;
     std::mutex _worker_mutex;
     std::condition_variable _worker_cv;
     // Doing all work for one thread
-    void _worker_onrun(int socket, std::list<std::thread>::iterator it);
+    void _worker_onrun(int socket);
 };
 
 } // namespace MTblocking
