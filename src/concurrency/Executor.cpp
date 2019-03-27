@@ -14,34 +14,27 @@ Executor::~Executor() {}
 void Executor::Start() {
   _state = State::kRun;
   _free_threads = 0;
-  for (int i=0; i<_low_watermark; ++i)
-      _threads.push_back(std::thread(&_perform_task, this));
+  for (int i=0; i<_low_watermark; ++i) {
+      _curr_threads++;
+      std::thread _work(&_perform_task, this);
+      _work.detach();
+  }
 }
 
 void Executor::Stop(bool await) {
+  std::unique_lock<std::mutex> lock(_mutex);
   _state = State::kStopping;
   empty_condition.notify_all();
-  {
-    std::unique_lock<std::mutex> lock(_mutex);
-    while(!_threads.empty())
-        _stop_cv.wait(lock);
+
+  while(!_threads.empty()) {
+      _stop_cv.wait(lock);
   }
   _state = State::kStopped;
 }
 
 void Executor::_add_thread() {
-  _threads.push_back(std::thread(&_perform_task, this));
-}
-
-void Executor::_delete_thread() {
-  std::thread::id this_id = std::this_thread::get_id();
-  auto this_iter = std::find_if(_threads.begin(), _threads.end(),
-                             [=](std::thread &t){ return (t.get_id() == this_id); });
-  if (this_iter != _threads.end()) {
-      _free_threads--;
-      this_iter->detach();
-      _threads.erase(this_iter);
-  }
+  std::thread _work(&_perform_task, this);
+  _work.detach();
 }
 
 void _perform_task(Executor *exec) {
@@ -49,13 +42,14 @@ void _perform_task(Executor *exec) {
       std::function<void()> task;
       auto time_until = std::chrono::system_clock::now()
                       + std::chrono::milliseconds(exec->_idle_time);
+
       {
         std::unique_lock<std::mutex> lock(exec->_mutex);
         while (exec->_tasks.empty() && exec->_state == Executor::State::kRun) {
             exec->_free_threads++;
             if (exec->empty_condition.wait_until(lock, time_until) == std::cv_status::timeout) {
-                if (exec->_threads.size() > exec->_low_watermark) {
-                    exec->_delete_thread();
+                if (exec->_curr_threads > exec->_low_watermark) {
+                    exec->_curr_threads--;
                     return ;
                 } else {
                     exec->empty_condition.wait(lock);
@@ -66,13 +60,16 @@ void _perform_task(Executor *exec) {
         task = exec->_tasks.front();
         exec->_tasks.pop_front();
       }
+
       task();
   }
+
   {
     std::unique_lock<std::mutex> lock(exec->_mutex);
-    exec->_delete_thread();
-    if (exec->_threads.empty())
+    exec->_curr_threads--;
+    if (exec->_curr_threads == 0) {
         exec->_stop_cv.notify_all();
+    }
   }
 }
 

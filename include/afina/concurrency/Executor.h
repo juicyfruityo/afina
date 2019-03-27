@@ -18,6 +18,7 @@ namespace Concurrency {
  * # Thread pool
  */
 class Executor {
+public:
     enum class State {
         // Threadpool is fully operational, tasks could be added and get executed
         kRun,
@@ -63,6 +64,7 @@ class Executor {
         // Enqueue new task
         _tasks.push_back(exec);
         if (_free_threads == 0 && _threads.size() < _high_watermark) {
+            _curr_threads++;
             _add_thread();
         }
         empty_condition.notify_one();
@@ -113,9 +115,9 @@ private:
     int _max_queue_size;
     int _idle_time;
     int _free_threads;
+    int _curr_threads;
 
     void _add_thread();
-    void _delete_thread();
     friend void _perform_task(Executor *exec);
 };
 
