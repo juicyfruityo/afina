@@ -4,7 +4,9 @@
 namespace Afina {
 namespace Concurrency {
 
-template <typename Op> class FlatCombine {};
+    template <typename Op>
+    class FlatCombine {
+    };
 
 } // namespace Concurrency
 } // namespace Afina

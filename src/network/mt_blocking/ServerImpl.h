@@ -61,7 +61,7 @@ namespace Network {
             std::mutex _worker_mutex;
             std::condition_variable _worker_cv;
             // Doing all work for one thread
-            void _worker_onrun(int socket);
+            void _worker_onrun(int socket, std::list<int>::iterator it_socket);
         };
 
     } // namespace MTblocking

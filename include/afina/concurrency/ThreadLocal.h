@@ -4,7 +4,9 @@
 namespace Afina {
 namespace Concurrency {
 
-template <typename T> class ThreadLocal {};
+    template <typename T>
+    class ThreadLocal {
+    };
 
 } // namespace Concurrency
 } // namespace Afina

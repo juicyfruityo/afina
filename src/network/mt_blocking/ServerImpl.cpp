@@ -151,14 +151,14 @@ namespace Network {
                 {
                     // чтобы записать в  список
                     std::lock_guard<std::mutex> lock(_worker_mutex);
-                    if (_worker_current == _worker_num) {
+                    if (_worker_sockets.size() == _worker_num) {
                         std::string msg = "Achieved max number of theads!";
                         send(client_socket, msg.data(), msg.size(), 0);
                         close(client_socket);
                     } else {
-                        _worker_current++;
-                        _worker_sockets.push_back(client_socket);
-                        std::thread _work(&ServerImpl::_worker_onrun, this, client_socket);
+                        _worker_sockets.push_front(client_socket);
+                        std::thread _work(&ServerImpl::_worker_onrun, this,
+                                          client_socket, _worker_sockets.begin());
                         _work.detach();
                     }
                 }
@@ -167,13 +167,13 @@ namespace Network {
             {
                 // ждём завершения последних тредов
                 std::unique_lock<std::mutex> lock(_worker_mutex);
-                _worker_cv.wait(lock, [this]() { return _worker_current == 0; });
+                _worker_cv.wait(lock, [this]() { return _worker_sockets.size() == 0; });
             }
             // Cleanup on exit...
             _logger->warn("Network stopped");
         }
 
-        void ServerImpl::_worker_onrun(int client_socket)
+        void ServerImpl::_worker_onrun(int client_socket, std::list<int>::iterator it_socket)
         {
             std::size_t arg_remains;
             Protocol::Parser parser;
@@ -261,8 +261,8 @@ namespace Network {
 
             {
                 std::lock_guard<std::mutex> lock(_worker_mutex);
-                _worker_current--;
-                if (_worker_current == 0 && !running.load())
+                _worker_sockets.erase(it_socket);
+                if (_worker_sockets.size() == 0 && !running.load())
                     _worker_cv.notify_all();
             }
         }
