@@ -85,7 +85,7 @@ void ServerImpl::Stop() {
     shutdown(_server_socket, SHUT_RDWR);
     {
       std::lock_guard<std::mutex> lock(_worker_mutex);
-      for(auto socket: _worker_sockets) {
+      for(auto &socket: _worker_sockets) {
           shutdown(socket, SHUT_RDWR);
       }
     }
