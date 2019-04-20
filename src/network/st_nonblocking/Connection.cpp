@@ -28,43 +28,48 @@ namespace Network {
 namespace STnonblock {
 
 // See Connection.h
-void Connection::Start(std::shared_ptr<Afina::Storage> ps) {
+void Connection::Start() {
     state = State::Alive;
-    pStorage = ps;
     command_to_execute.reset();
     argument_for_command.resize(0);
     parser.Reset();
     results_to_write.clear();
+    arg_remains = 0;
+    _written_bytes = 0;
+    _readed_bytes = 0;
+    _event.events = Masks::read;
+    // _answers.clear();
 }
 
 // See Connection.h
 void Connection::OnError() {
     state = State::Dead;
-    shutdown(_socket, , SHUT_RDWR);
+    shutdown(_socket, SHUT_RDWR);
 }
 
 // See Connection.h
 void Connection::OnClose() {
     state = State::Dead;
-    shutdown(_socket, , SHUT_RDWR);
+    shutdown(_socket, SHUT_RDWR);
 }
 
 // See Connection.h
 void Connection::DoRead() {
+    int client_socket = _socket;
     command_to_execute = nullptr;
     try {
-        int read_bytes = -1;
-        char client_buffer[4096];
-        while ((read_bytes = read(client_socket, client_buffer, sizeof(client_buffer))) > 0) {
+        while ((new_bytes = read(client_socket, client_buffer + _readed_bytes,
+                                  sizeof(client_buffer) - _readed_bytes)) > 0) {
+            _readed_bytes += new_bytes;
             // Single block of data read from the socket could trigger inside actions a multiple times,
             // for example:
             // - read#0: [<command1 start>]
             // - read#1: [<command1 end> <argument> <command2> <argument for command 2> <command3> ... ]
-            while (read_bytes > 0) {
+            while (_readed_bytes > 0) {
                 // There is no command yet
                 if (!command_to_execute) {
                     std::size_t parsed = 0;
-                    if (parser.Parse(client_buffer, read_bytes, parsed)) {
+                    if (parser.Parse(client_buffer, _readed_bytes, parsed)) {
                         // There is no command to be launched, continue to parse input stream
                         // Here we are, current chunk finished some command, process it
                         command_to_execute = parser.Build(arg_remains);
@@ -78,20 +83,20 @@ void Connection::DoRead() {
                     if (parsed == 0) {
                         break;
                     } else {
-                        std::memmove(client_buffer, client_buffer + parsed, read_bytes - parsed);
-                        read_bytes -= parsed;
+                        std::memmove(client_buffer, client_buffer + parsed, _readed_bytes - parsed);
+                        _readed_bytes -= parsed;
                     }
                 }
 
                 // There is command, but we still wait for argument to arrive...
                 if (command_to_execute && arg_remains > 0) {
                     // There is some parsed command, and now we are reading argument
-                    std::size_t to_read = std::min(arg_remains, std::size_t(read_bytes));
+                    std::size_t to_read = std::min(arg_remains, std::size_t(_readed_bytes));
                     argument_for_command.append(client_buffer, to_read);
 
-                    std::memmove(client_buffer, client_buffer + to_read, read_bytes - to_read);
+                    std::memmove(client_buffer, client_buffer + to_read, _readed_bytes - to_read);
                     arg_remains -= to_read;
-                    read_bytes -= to_read;
+                    _readed_bytes -= to_read;
                 }
 
                 // There is command & argument - RUN!
@@ -101,17 +106,19 @@ void Connection::DoRead() {
                     result_to_write += "\r\n";
                     // Save results for better time
                     results_to_write.push_back(result_to_write);
+                    // _answers.push_back(result_to_write);
+                    // Поменять так чтобы сохраняло состояние ответов
 
                     // Prepare for the next command
                     command_to_execute.reset();
                     argument_for_command.resize(0);
                     parser.Reset();
 
-                    _event.events = EPOLLOUT;
+                    _event.events = Masks::read_write;
                 }
             } // while (read_bytes)
         }
-        if (read_bytes > 0) {
+        if (_readed_bytes > 0) {
             throw std::runtime_error(std::string(strerror(errno)));
         }
     } catch (std::runtime_error &ex) {
@@ -120,15 +127,34 @@ void Connection::DoRead() {
 
 // See Connection.h
 void Connection::DoWrite() {
-  while (!results_to_write.empty()) {
-    auto result = results_to_write.back();
-    if (send(client_socket, result.data(), result.size(), 0) <= 0) {
-        throw std::runtime_error("Failed to send response");
+    int results_num = results_to_write.size();
+    if (results_num == 0) {
+        return;
     }
-    results_to_write.pop_back();
-  }
 
-  _event.events = EPOLLIN;
+    struct iovec results_iov[results_num];
+    for (int i=0; i<results_num; ++i) {
+        results_iov[i].iov_base = const_cast<char *>(results_to_write[i].c_str()); // скачтовать ссылку на чар
+        results_iov[i].iov_len = results_to_write[i].size();
+    }
+    // дописать учет написанных байтов
+    results_iov[0].iov_base = static_cast<char *>(results_iov[0].iov_base) + _written_bytes;
+    results_iov[0].iov_len -= _written_bytes;
+
+    int written = writev(_socket, results_iov, results_num);
+    _written_bytes += written;
+
+    int i = 0;
+    for (; results_num > i && (_written_bytes-results_iov[i].iov_len) > 0; ++i) {
+        _written_bytes -= results_iov[i].iov_len;
+    }
+
+    results_to_write.erase(results_to_write.begin(), results_to_write.begin() + i);
+    if (results_to_write.size() == 0) {
+        _event.events = Masks::read;
+    } else {
+        _event.events = Masks::read_write;
+    }
 }
 
 } // namespace STnonblock
