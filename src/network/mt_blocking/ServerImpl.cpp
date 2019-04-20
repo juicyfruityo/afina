@@ -85,7 +85,6 @@ void ServerImpl::Stop() {
     shutdown(_server_socket, SHUT_RDWR);
     while (!_worker_sockets.empty()) {
         shutdown(_worker_sockets.front(), SHUT_RDWR);
-        _worker_sockets.pop_front();
     }
 }
 
