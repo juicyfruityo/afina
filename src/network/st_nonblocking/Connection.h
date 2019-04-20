@@ -3,9 +3,9 @@
 
 #include <cstring>
 
-#include <protocol/Parser.h>
 #include <afina/Storage.h>
 #include <afina/execute/Command.h>
+#include <protocol/Parser.h>
 
 #include <sys/epoll.h>
 
@@ -15,10 +15,7 @@ namespace STnonblock {
 
 class Connection {
 public:
-    enum class State {
-        Alive,
-        Dead
-    };
+    enum class State { Alive, Dead };
 
     struct Masks {
         static const int read = ((EPOLLIN | EPOLLRDHUP) | EPOLLERR);
@@ -32,10 +29,10 @@ public:
     }
 
     inline bool isAlive() const {
-      if (state == State::Alive) {
-          return true;
-      }
-      return false;
+        if (state == State::Alive) {
+            return true;
+        }
+        return false;
     }
 
     void Start();

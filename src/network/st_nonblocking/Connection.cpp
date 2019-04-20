@@ -58,8 +58,8 @@ void Connection::DoRead() {
     int client_socket = _socket;
     command_to_execute = nullptr;
     try {
-        while ((new_bytes = read(client_socket, client_buffer + _readed_bytes,
-                                  sizeof(client_buffer) - _readed_bytes)) > 0) {
+        while ((new_bytes = read(client_socket, client_buffer + _readed_bytes, sizeof(client_buffer) - _readed_bytes)) >
+               0) {
             _readed_bytes += new_bytes;
             // Single block of data read from the socket could trigger inside actions a multiple times,
             // for example:
@@ -133,7 +133,7 @@ void Connection::DoWrite() {
     }
 
     struct iovec results_iov[results_num];
-    for (int i=0; i<results_num; ++i) {
+    for (int i = 0; i < results_num; ++i) {
         results_iov[i].iov_base = const_cast<char *>(results_to_write[i].c_str()); // скачтовать ссылку на чар
         results_iov[i].iov_len = results_to_write[i].size();
     }
@@ -145,7 +145,7 @@ void Connection::DoWrite() {
     _written_bytes += written;
 
     int i = 0;
-    for (; results_num > i && (_written_bytes-results_iov[i].iov_len) > 0; ++i) {
+    for (; results_num > i && (_written_bytes - results_iov[i].iov_len) > 0; ++i) {
         _written_bytes -= results_iov[i].iov_len;
     }
 
