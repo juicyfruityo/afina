@@ -44,13 +44,11 @@ void Connection::Start() {
 // See Connection.h
 void Connection::OnError() {
     state = State::Dead;
-    shutdown(_socket, SHUT_RDWR);
 }
 
 // See Connection.h
 void Connection::OnClose() {
     state = State::Dead;
-    shutdown(_socket, SHUT_RDWR);
 }
 
 // See Connection.h
@@ -127,26 +125,27 @@ void Connection::DoRead() {
 
 // See Connection.h
 void Connection::DoWrite() {
+    int max_iov = 128;
     int results_num = results_to_write.size();
-    if (results_num == 0) {
-        return;
-    }
+    int max_num = max_iov > results_num ? results_num : max_iov;
 
-    struct iovec results_iov[results_num];
-    for (int i = 0; i < results_num; ++i) {
-        results_iov[i].iov_base = const_cast<char *>(results_to_write[i].c_str()); // скачтовать ссылку на чар
-        results_iov[i].iov_len = results_to_write[i].size();
+    auto results_it = results_to_write.begin();
+    struct iovec results_iov[max_iov];
+
+    for (int i = 0; i < max_num; ++i, ++results_it) {
+        results_iov[i].iov_base = &(*results_it)[0];
+        results_iov[i].iov_len = (*results_it).size();
     }
-    // дописать учет написанных байтов
-    results_iov[0].iov_base = static_cast<char *>(results_iov[0].iov_base) + _written_bytes;
+    results_iov[0].iov_base = results_iov[0].iov_base + _written_bytes;
     results_iov[0].iov_len -= _written_bytes;
 
     int written = writev(_socket, results_iov, results_num);
     _written_bytes += written;
 
     int i = 0;
-    for (; results_num > i && (_written_bytes - results_iov[i].iov_len) > 0; ++i) {
-        _written_bytes -= results_iov[i].iov_len;
+    for (auto it=&results_iov[0]; results_num > i
+         && _written_bytes > (*it).iov_len; ++i, ++it) {
+        _written_bytes -= (*it).iov_len;
     }
 
     results_to_write.erase(results_to_write.begin(), results_to_write.begin() + i);

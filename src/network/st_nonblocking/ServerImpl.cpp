@@ -91,7 +91,6 @@ void ServerImpl::Stop() {
     if (eventfd_write(_event_fd, 1)) {
         throw std::runtime_error("Failed to wakeup workers");
     }
-    // пройтись разбудить и удалить сокеты
 }
 
 // See Server.h
