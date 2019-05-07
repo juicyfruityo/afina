@@ -1,12 +1,12 @@
 #ifndef AFINA_NETWORK_MT_NONBLOCKING_SERVER_H
 #define AFINA_NETWORK_MT_NONBLOCKING_SERVER_H
 
+#include <set>
 #include <thread>
 #include <vector>
-#include <set>
 
-#include <afina/network/Server.h>
 #include "Connection.h"
+#include <afina/network/Server.h>
 
 namespace spdlog {
 class logger;
@@ -67,7 +67,7 @@ private:
     std::vector<Worker> _workers;
 
     // save connections so we can delete them and close sockets
-    std::set<Connection*> _connections;
+    std::set<Connection *> _connections;
 };
 
 } // namespace MTnonblock

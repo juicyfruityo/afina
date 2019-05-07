@@ -1,9 +1,9 @@
 #ifndef AFINA_NETWORK_MT_NONBLOCKING_CONNECTION_H
 #define AFINA_NETWORK_MT_NONBLOCKING_CONNECTION_H
 
+#include <cassert>
 #include <cstring>
 #include <mutex>
-#include <cassert>
 
 #include <afina/Storage.h>
 #include <afina/execute/Command.h>
