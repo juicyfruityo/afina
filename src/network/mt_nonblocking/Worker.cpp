@@ -93,8 +93,12 @@ void Worker::OnRun() {
             // Some connection gets new data
             Connection *pconn = static_cast<Connection *>(current_event.data.ptr);
             if ((current_event.events & EPOLLERR) || (current_event.events & EPOLLHUP)) {
+                pconn->DoRead();
+                pconn->DoWrite();
                 pconn->OnError();
             } else if (current_event.events & EPOLLRDHUP) {
+                pconn->DoRead();
+                pconn->DoWrite();
                 pconn->OnClose();
             } else {
                 // Depends on what connection wants...
@@ -111,6 +115,7 @@ void Worker::OnRun() {
                 pconn->_event.events |= EPOLLONESHOT;
                 if (epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, pconn->_socket, &pconn->_event)) {
                     pconn->OnError();
+                    close(pconn->_socket);
                     delete pconn;
                 }
             }
@@ -119,6 +124,7 @@ void Worker::OnRun() {
                 if (epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, pconn->_socket, &pconn->_event)) {
                     std::cerr << "Failed to delete connection!" << std::endl;
                 }
+                close(pconn->_socket);
                 delete pconn;
             }
         }
