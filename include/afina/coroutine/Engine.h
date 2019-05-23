@@ -29,7 +29,7 @@ private:
         char *Hight = nullptr;
 
         // coroutine stack copy buffer
-        std::tuple<char *, uint32_t> Stack = std::make_tuple(nullptr, 0);
+        std::tuple<char *, std::size_t> Stack = std::make_tuple(nullptr, 0);
 
         // Saved coroutine context (registers)
         jmp_buf Environment;
@@ -117,7 +117,6 @@ public:
         // Start routine execution
         void *pc = run(main, std::forward<Ta>(args)...);
         idle_ctx = new context();
-
         if (setjmp(idle_ctx->Environment) > 0) {
             // Here: correct finish of the coroutine section
             yield();
